@@ -1,0 +1,22 @@
+{
+  "name": "仓库盘点",
+  "short_name": "盘点",
+  "description": "托盘条码扫码盘点工具，支持本地离线导出",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

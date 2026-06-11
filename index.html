@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#16213e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>库存盘点</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css?v=20260605-07">
+</head>
+<body>
+  <div id="app">
+    <div id="page-home" class="page active">
+      <div class="header">
+        <h1>库存盘点</h1>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-secondary" id="btn-refresh-data" type="button">刷新</button>
+          <button class="btn btn-sm btn-secondary" id="btn-export-all" type="button">导出</button>
+        </div>
+      </div>
+
+      <div class="data-status-card status-loading" id="data-status-card">
+        <div class="data-status-title" id="data-status-title">正在加载基础数据</div>
+        <div class="data-status-desc" id="data-status-detail">docs/basic-data.json</div>
+      </div>
+
+      <div class="module-card module-stock" id="stock-module">
+        <div class="module-header" id="btn-open-stock">
+          <div class="module-icon">□</div>
+          <div class="module-info">
+            <div class="module-title">盘点管理</div>
+            <div class="module-desc" id="stock-module-desc">扫码盘点托盘库存</div>
+          </div>
+          <div class="module-arrow">▾</div>
+        </div>
+        <div class="module-body" id="stock-module-body">
+          <div id="session-list"></div>
+          <button class="btn btn-primary btn-block" id="btn-new-session" type="button">+ 新建盘点</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-session" class="page">
+      <div class="header">
+        <button class="btn-back" id="btn-back-home" type="button">←</button>
+        <h1 id="session-title">盘点详情</h1>
+        <button class="btn btn-sm btn-secondary" id="btn-export-session" type="button">导出</button>
+      </div>
+      <div class="session-summary">
+        <div><span>记录</span><strong id="stat-total">0</strong></div>
+        <div><span>异常</span><strong id="stat-abnormal">0</strong></div>
+        <div><span>未命中</span><strong id="stat-missing">0</strong></div>
+      </div>
+      <div class="records-header">
+        <h2>扫码记录</h2>
+        <span id="record-count"></span>
+      </div>
+      <div id="record-list"></div>
+      <button class="btn btn-primary btn-block" id="btn-start-scan" type="button">开始扫码</button>
+    </div>
+
+    <div id="page-scanner" class="page">
+      <div class="header">
+        <button class="btn-back" id="btn-back-session" type="button">←</button>
+        <h1>扫码盘点</h1>
+      </div>
+      <div id="scanner-container"></div>
+      <div id="scan-result-area"></div>
+      <div id="recent-scans"></div>
+    </div>
+
+    <div id="page-edit" class="page">
+      <div class="header">
+        <button class="btn-back" id="btn-back-from-edit" type="button">←</button>
+        <h1>编辑记录</h1>
+      </div>
+      <div id="edit-scan-info"></div>
+      <form id="edit-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-pallet">托盘号</label>
+            <input type="text" id="edit-pallet" readonly>
+          </div>
+          <div class="form-group">
+            <label for="edit-status">状态判定</label>
+            <input type="text" id="edit-status" readonly>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-invoice">发票号</label>
+            <input type="text" id="edit-invoice" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="edit-part">零件号</label>
+            <input type="text" id="edit-part" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-location">库位号</label>
+            <input type="text" id="edit-location" autocomplete="off" placeholder="如 A-03">
+          </div>
+          <div class="form-group">
+            <label for="edit-qty">数量</label>
+            <input type="number" id="edit-qty" inputmode="numeric">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-remark">备注</label>
+          <textarea id="edit-remark" placeholder="选填备注信息"></textarea>
+        </div>
+        <button type="submit" class="btn btn-success btn-block">保存</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-new-session">
+    <div class="modal">
+      <h3>新建盘点会话</h3>
+      <div class="form-group">
+        <label for="input-session-name">会话名称</label>
+        <input type="text" id="input-session-name" autocomplete="off" placeholder="如 2026-06-04 SIT 仓库盘点">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btn-cancel-session" type="button">取消</button>
+        <button class="btn btn-primary" id="btn-create-session" type="button">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-duplicate">
+    <div class="modal">
+      <h3>重复扫码</h3>
+      <p id="duplicate-message"></p>
+      <div class="modal-actions vertical">
+        <button class="btn btn-primary btn-block" id="btn-dup-overwrite" type="button">覆盖已有记录</button>
+        <button class="btn btn-secondary btn-block" id="btn-dup-cancel" type="button">继续扫码</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-confirm-delete">
+    <div class="modal">
+      <h3>确认删除</h3>
+      <p id="delete-message"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btn-cancel-delete" type="button">取消</button>
+        <button class="btn btn-danger" id="btn-confirm-delete" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-footer">
+    <span>SupplyWise</span>
+    <span id="footer-version"></span>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="libs/html5-qrcode.min.js"></script>
+  <script src="libs/xlsx.full.min.js"></script>
+  <script src="js/utils.js?v=20260605-07"></script>
+  <script src="js/data.js?v=20260605-07"></script>
+  <script src="js/db.js?v=20260605-07"></script>
+  <script src="js/scanner.js?v=20260605-07"></script>
+  <script src="js/export.js?v=20260605-07"></script>
+  <script src="js/app.js?v=20260605-07"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+~$*.xlsx
+*.xlsx
+*.pdf
+screenshot-*.png
+.git
+.gitignore
