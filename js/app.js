@@ -1,11 +1,12 @@
 'use strict';
 
 const App = {
-  VERSION: '20260605-03',
+  VERSION: '20261105-01',
   currentSessionId: null,
   _toastTimer: null,
   _pendingRecord: null,
   _pendingDuplicateRecord: null,
+  _pendingRecordSource: 'scan',
   _editingId: null,
 
   async init() {
@@ -161,11 +162,81 @@ const App = {
     });
   },
 
+  async openManualRecord() {
+    if (!this.currentSessionId) {
+      this.showToast('请先进入盘点会话', true);
+      return;
+    }
+    if (!DataStore.meta()) {
+      this.showToast('基础数据未加载完成', true);
+      return;
+    }
+    document.getElementById('input-manual-pallet').value = '';
+    document.getElementById('modal-manual-record').classList.add('active');
+    setTimeout(() => document.getElementById('input-manual-pallet').focus(), 50);
+  },
+
+  _normalizeManualPallet(value) {
+    if (typeof value !== 'string') return null;
+    const normalized = value.replace(/\s+/g, '').trim();
+    return normalized || null;
+  },
+
+  async _openManualRecordForm(record) {
+    await Scanner.stop();
+    this.showPage('page-scanner');
+    await this._renderRecentScans();
+    this._scrollScannerToTop();
+    this._renderScanForm(record, 'manual');
+    requestAnimationFrame(() => this._scrollScannerToTop());
+  },
+
+  async _createManualRecord() {
+    const rawInput = document.getElementById('input-manual-pallet').value;
+    const pallet = this._normalizeManualPallet(rawInput);
+    if (!pallet) {
+      this.showToast('请输入托盘号', true);
+      return;
+    }
+    document.getElementById('modal-manual-record').classList.remove('active');
+    const existing = await this._findCurrentSessionRecordByPallet(pallet);
+    const record = this._buildRecord(pallet, pallet, existing, 'manual');
+    this._pendingRecord = record;
+    this._pendingRecordSource = 'manual';
+    this._pendingDuplicateRecord = existing || null;
+    if (existing) {
+      document.getElementById('manual-duplicate-message').textContent = '当前盘点会话内已存在托盘号「' + pallet + '」的记录，是否覆盖为本次手动创建内容？';
+      document.getElementById('modal-manual-duplicate').classList.add('active');
+      return;
+    }
+    await this._openManualRecordForm(record);
+  },
+
+  async _findCurrentSessionRecordByPallet(pallet) {
+    const records = await DB.getRecordsBySession(this.currentSessionId);
+    return records.find((record) => record.pallet === pallet) || null;
+  },
+
+  _setScannerPageTitle(mode) {
+    const title = document.getElementById('scanner-page-title');
+    if (!title) return;
+    title.textContent = mode === 'manual' ? '手动创建记录' : '扫码盘点';
+  },
+
+  _manualEntryHintHtml() {
+    return '<div class="scan-result"><div class="field-grid">' +
+      '<div class="field full-width"><div class="field-label">创建方式</div><div class="field-value">手动创建盘点记录</div></div>' +
+      '<div class="field full-width"><div class="field-label">规则</div><div class="field-value">请输入任意托盘号；未命中基础数据时也可手动补充后保存</div></div>' +
+    '</div></div>';
+  },
+
   async openScanner() {
     if (!DataStore.meta()) {
       this.showToast('基础数据未加载完成', true);
       return;
     }
+    this._pendingRecordSource = 'scan';
+    this._setScannerPageTitle('scan');
     this.showPage('page-scanner');
     Utils.prepareFeedback();
     document.getElementById('scan-result-area').innerHTML = this._idleScanHtml();
@@ -185,19 +256,20 @@ const App = {
   },
 
   async _handleScannedPallet(pallet, rawText) {
-    const existing = await DB.findByPallet(pallet);
-    const record = this._buildRecord(pallet, rawText, existing);
+    const existing = await this._findCurrentSessionRecordByPallet(pallet);
+    const record = this._buildRecord(pallet, rawText, existing, 'scan');
     this._pendingRecord = record;
+    this._pendingRecordSource = 'scan';
+    this._pendingDuplicateRecord = existing || null;
     if (existing) {
-      this._pendingDuplicateRecord = existing;
       document.getElementById('duplicate-message').textContent = '托盘号「' + pallet + '」已有记录，覆盖后将保留本次扫码匹配结果并更新库位、备注。';
       document.getElementById('modal-duplicate').classList.add('active');
       return;
     }
-    this._renderScanForm(record);
+    this._renderScanForm(record, 'scan');
   },
 
-  _buildRecord(pallet, rawText, existing) {
+  _buildRecord(pallet, rawText, existing, entryMode = 'scan') {
     const base = DataStore.find(pallet);
     const now = Utils.nowISO();
     const abnormal = base && base.statusKind === 'outbound';
@@ -216,15 +288,22 @@ const App = {
       remark: existing ? existing.remark || '' : '',
       scannedAt: existing ? existing.scannedAt : now,
       updatedAt: now,
-      sourceMatched: Boolean(base)
+      sourceMatched: Boolean(base),
+      entryMode
     };
   },
 
-  _renderScanForm(record) {
+  _renderScanForm(record, mode = 'scan') {
     const scannerContainer = document.getElementById('scanner-container');
     scannerContainer.classList.add('collapsed');
-    document.getElementById('scan-result-area').innerHTML = this._buildScanInfoHtml(record) +
+    this._setScannerPageTitle(mode);
+    const palletField = mode === 'manual'
+      ? '<div class="form-group"><label for="scan-pallet">托盘号</label><input type="text" id="scan-pallet" autocomplete="off" value="' + Utils.esc(record.pallet || '') + '"></div>'
+      : '';
+    const introHtml = mode === 'manual' ? this._manualEntryHintHtml() : this._buildScanInfoHtml(record);
+    document.getElementById('scan-result-area').innerHTML = introHtml +
       '<form id="scan-form">' +
+        palletField +
         '<div class="form-row">' +
           '<div class="form-group"><label for="scan-invoice">发票号</label><input type="text" id="scan-invoice" autocomplete="off" value="' + Utils.esc(record.invoice || '') + '"></div>' +
           '<div class="form-group"><label for="scan-part">零件号</label><input type="text" id="scan-part" autocomplete="off" value="' + Utils.esc(record.part || '') + '"></div>' +
@@ -236,7 +315,7 @@ const App = {
         '<div class="form-group"><label for="scan-location">库位号</label><input type="text" id="scan-location" autocomplete="off" placeholder="选填，如 A-03" value="' + Utils.esc(record.location) + '"></div>' +
         '<div class="form-group"><label for="scan-remark">备注</label><textarea id="scan-remark" placeholder="选填备注信息">' + Utils.esc(record.remark) + '</textarea></div>' +
         '<button type="submit" class="btn btn-success btn-block">确认保存</button>' +
-        '<button type="button" class="btn btn-secondary btn-block btn-scan-continue" id="btn-scan-cancel">继续扫码</button>' +
+        '<button type="button" class="btn btn-secondary btn-block btn-scan-continue" id="btn-scan-cancel">' + (mode === 'manual' ? '取消' : '继续扫码') + '</button>' +
       '</form>';
     document.getElementById('scan-form').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -244,10 +323,25 @@ const App = {
     });
     document.getElementById('btn-scan-cancel').addEventListener('click', () => {
       this._scrollScannerToTop();
+      if (mode === 'manual') {
+        this.showPage('page-session');
+        return;
+      }
       this.openScanner();
     });
-    document.getElementById('scan-location').focus();
+    const focusTarget = mode === 'manual' ? document.getElementById('scan-pallet') : document.getElementById('scan-location');
+    if (focusTarget) focusTarget.focus();
     requestAnimationFrame(() => this._scrollScannerToTop());
+    if (mode === 'manual') {
+      if (!record.sourceMatched) {
+        this.showToast('未命中基础数据，可手动补充后保存');
+      } else if (record.result === 'abnormal') {
+        this.showToast('该托盘为已出库状态，请核查', true);
+      } else {
+        this.showToast('已带出基础数据，可继续补充字段');
+      }
+      return;
+    }
     if (record.result === 'abnormal') {
       this.showToast('该托盘为已出库状态，请核查', true);
       Utils.vibrate([220, 120, 220]);
@@ -294,14 +388,36 @@ const App = {
 
   async _saveScanRecord() {
     if (!this._pendingRecord) return;
-    const record = Object.assign({}, this._pendingRecord, this._readEditableFields('scan'), {
+    const manualPalletInput = document.getElementById('scan-pallet');
+    const pallet = manualPalletInput ? this._normalizeManualPallet(manualPalletInput.value) : this._pendingRecord.pallet;
+    if (!pallet) {
+      this.showToast('请输入托盘号', true);
+      if (manualPalletInput) manualPalletInput.focus();
+      return;
+    }
+    const matchedDuplicate = this._pendingDuplicateRecord
+      && this._pendingDuplicateRecord.sessionId === this.currentSessionId
+      && this._pendingDuplicateRecord.pallet === pallet
+      ? this._pendingDuplicateRecord
+      : null;
+    const baseRecord = this._buildRecord(pallet, pallet, matchedDuplicate, this._pendingRecordSource);
+    const record = Object.assign({}, this._pendingRecord, baseRecord, this._readEditableFields('scan'), {
+      id: matchedDuplicate ? matchedDuplicate.id : (this._pendingRecord.id || Utils.generateId()),
+      scannedAt: matchedDuplicate ? matchedDuplicate.scannedAt : (this._pendingRecord.scannedAt || Utils.nowISO()),
       updatedAt: Utils.nowISO()
     });
     await DB.upsert(record);
     this._pendingRecord = null;
     this._pendingDuplicateRecord = null;
+    const entryMode = this._pendingRecordSource;
+    this._pendingRecordSource = 'scan';
     this.showToast('保存成功');
     await this._renderRecentScans();
+    if (entryMode === 'manual') {
+      await this.refreshRecordList();
+      this.showPage('page-session');
+      return;
+    }
     await this.openScanner();
   },
 
@@ -442,6 +558,8 @@ const App = {
       await this.openScanner();
     });
     document.getElementById('btn-cancel-session').addEventListener('click', () => document.getElementById('modal-new-session').classList.remove('active'));
+    document.getElementById('btn-cancel-manual-record').addEventListener('click', () => document.getElementById('modal-manual-record').classList.remove('active'));
+    document.getElementById('btn-create-manual-record').addEventListener('click', () => this._createManualRecord());
     document.getElementById('btn-open-stock').addEventListener('click', () => {
       const body = document.getElementById('stock-module-body');
       const arrow = document.querySelector('#stock-module .module-arrow');
@@ -460,6 +578,7 @@ const App = {
       this.showPage('page-session');
     });
     document.getElementById('btn-start-scan').addEventListener('click', () => this.openScanner());
+    document.getElementById('btn-open-manual-record').addEventListener('click', () => this.openManualRecord());
     document.getElementById('btn-export-session').addEventListener('click', () => this._exportCurrentSession());
     document.getElementById('btn-back-from-edit').addEventListener('click', async () => {
       this._editingId = null;
@@ -472,13 +591,25 @@ const App = {
     });
     document.getElementById('btn-dup-overwrite').addEventListener('click', () => {
       document.getElementById('modal-duplicate').classList.remove('active');
-      this._renderScanForm(this._pendingRecord);
+      this._renderScanForm(this._pendingRecord, 'scan');
     });
     document.getElementById('btn-dup-cancel').addEventListener('click', async () => {
       document.getElementById('modal-duplicate').classList.remove('active');
       this._pendingRecord = null;
       this._pendingDuplicateRecord = null;
+      this._pendingRecordSource = 'scan';
       await this.openScanner();
+    });
+    document.getElementById('btn-manual-overwrite').addEventListener('click', async () => {
+      document.getElementById('modal-manual-duplicate').classList.remove('active');
+      await this._openManualRecordForm(this._pendingRecord);
+    });
+    document.getElementById('btn-manual-reenter').addEventListener('click', () => {
+      document.getElementById('modal-manual-duplicate').classList.remove('active');
+      this._pendingRecord = null;
+      this._pendingDuplicateRecord = null;
+      this._pendingRecordSource = 'manual';
+      this.openManualRecord();
     });
     document.getElementById('btn-cancel-delete').addEventListener('click', () => document.getElementById('modal-confirm-delete').classList.remove('active'));
     document.getElementById('btn-confirm-delete').addEventListener('click', () => this._executeDelete());

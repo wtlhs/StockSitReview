@@ -10,7 +10,7 @@
 python scripts/build-basic-data.py
 ```
 
-脚本会读取项目根目录的 `juyue发货情况260605.xlsx`，生成 `docs/basic-data.json`。
+脚本会读取项目根目录的 `juyue发货情况260622.xlsx`，生成 `docs/basic-data.json`。
 
 ## 本地运行
 

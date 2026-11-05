@@ -1,7 +1,7 @@
 'use strict';
 
 const DataStore = {
-  VERSION: '20260605-01',
+  VERSION: '20261105-01',
   _data: null,
   _map: new Map(),
 

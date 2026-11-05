@@ -533,8 +533,15 @@ button, input, textarea {
   margin-top: 0;
 }
 
-.btn-scan-continue {
-  margin-top: 8px !important;
+.session-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.session-actions .btn {
+  margin-top: 0;
 }
 
 .field-grid {

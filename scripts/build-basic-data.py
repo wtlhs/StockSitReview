@@ -10,7 +10,8 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-SOURCE_FILE = ROOT_DIR / 'juyue发货情况260605.xlsx'
+DEFAULT_SOURCE = 'juyue发货情况261105.xlsx'
+SOURCE_FILE = ROOT_DIR / (sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SOURCE)
 OUTPUT_FILE = ROOT_DIR / 'docs' / 'basic-data.json'
 NAMESPACE = {'a': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 PACKAGE_NAMESPACE = {'p': 'http://schemas.openxmlformats.org/package/2006/relationships'}
@@ -43,6 +44,8 @@ def resolve_first_sheet_path(archive: zipfile.ZipFile) -> str:
     if not relation_id or relation_id not in relationship_map:
         raise ValueError('无法解析首个工作表路径')
     target = relationship_map[relation_id]
+    if target.startswith('/'):
+        return target.lstrip('/')
     return target if target.startswith('xl/') else 'xl/' + target
 
 
@@ -55,10 +58,15 @@ def column_index(ref: str) -> int:
 
 
 def read_cell_value(cell: ET.Element, shared_strings: list[str]) -> str:
+    cell_type = cell.attrib.get('t')
+    if cell_type == 'inlineStr':
+        inline = cell.find('a:is', NAMESPACE)
+        if inline is None:
+            return ''
+        return ''.join(text.text or '' for text in inline.findall('.//a:t', NAMESPACE))
     value = cell.find('a:v', NAMESPACE)
     if value is None or value.text is None:
         return ''
-    cell_type = cell.attrib.get('t')
     if cell_type == 's':
         return shared_strings[int(value.text)]
     return value.text

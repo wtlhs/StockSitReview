@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>库存盘点</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/style.css?v=20260605-07">
+  <link rel="stylesheet" href="css/style.css?v=20261105-01">
 </head>
 <body>
   <div id="app">
@@ -59,13 +59,16 @@
         <span id="record-count"></span>
       </div>
       <div id="record-list"></div>
-      <button class="btn btn-primary btn-block" id="btn-start-scan" type="button">开始扫码</button>
+      <div class="session-actions">
+        <button class="btn btn-primary btn-block" id="btn-start-scan" type="button">开始扫码</button>
+        <button class="btn btn-secondary btn-block" id="btn-open-manual-record" type="button">手动创建</button>
+      </div>
     </div>
 
     <div id="page-scanner" class="page">
       <div class="header">
         <button class="btn-back" id="btn-back-session" type="button">←</button>
-        <h1>扫码盘点</h1>
+        <h1 id="scanner-page-title">扫码盘点</h1>
       </div>
       <div id="scanner-container"></div>
       <div id="scan-result-area"></div>
@@ -143,6 +146,31 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-manual-record">
+    <div class="modal">
+      <h3>手动创建记录</h3>
+      <div class="form-group">
+        <label for="input-manual-pallet">托盘号</label>
+        <input type="text" id="input-manual-pallet" autocomplete="off" placeholder="请输入托盘号">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btn-cancel-manual-record" type="button">取消</button>
+        <button class="btn btn-primary" id="btn-create-manual-record" type="button">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-manual-duplicate">
+    <div class="modal">
+      <h3>重复记录</h3>
+      <p id="manual-duplicate-message"></p>
+      <div class="modal-actions vertical">
+        <button class="btn btn-primary btn-block" id="btn-manual-overwrite" type="button">覆盖已有记录</button>
+        <button class="btn btn-secondary btn-block" id="btn-manual-reenter" type="button">重新输入</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-confirm-delete">
     <div class="modal">
       <h3>确认删除</h3>
@@ -163,11 +191,11 @@
 
   <script src="libs/html5-qrcode.min.js"></script>
   <script src="libs/xlsx.full.min.js"></script>
-  <script src="js/utils.js?v=20260605-07"></script>
-  <script src="js/data.js?v=20260605-07"></script>
-  <script src="js/db.js?v=20260605-07"></script>
-  <script src="js/scanner.js?v=20260605-07"></script>
-  <script src="js/export.js?v=20260605-07"></script>
-  <script src="js/app.js?v=20260605-07"></script>
+  <script src="js/utils.js?v=20261105-01"></script>
+  <script src="js/data.js?v=20261105-01"></script>
+  <script src="js/db.js?v=20261105-01"></script>
+  <script src="js/scanner.js?v=20261105-01"></script>
+  <script src="js/export.js?v=20261105-01"></script>
+  <script src="js/app.js?v=20261105-01"></script>
 </body>
 </html>
