@@ -1,7 +1,7 @@
 'use strict';
 
 const App = {
-  VERSION: '20261105-01',
+  VERSION: '20261106-01',
   currentSessionId: null,
   _toastTimer: null,
   _pendingRecord: null,
@@ -457,7 +457,12 @@ const App = {
   async _saveEditedRecord() {
     const record = await DB.getRecord(this._editingId);
     if (!record) return;
-    const updated = Object.assign({}, record, this._readEditableFields('edit'), {
+    const updated = Object.assign({}, record, {
+      invoice: document.getElementById('edit-invoice').value.trim(),
+      part: document.getElementById('edit-part').value.trim(),
+      qty: Utils.parsePositiveInt(document.getElementById('edit-qty').value.trim()),
+      location: document.getElementById('edit-location').value.trim(),
+      remark: document.getElementById('edit-remark').value.trim(),
       updatedAt: Utils.nowISO()
     });
     await DB.upsert(updated);

@@ -150,5 +150,6 @@ docker build -t stock-sit-review .
 
 - 不要随意重写扫码生命周期；`js/scanner.js` 的 `_pause()` / `_ensureScanner()` / `_recreateScanner()` 是为 iOS Safari 稳定性补出来的。
 - 手动创建和扫码创建共用 `_renderScanForm()`、`_saveScanRecord()`，修其中一个流程时要看另一个是否被连带影响。
+- **编辑记录（`_editRecord`/`_saveEditedRecord`）只允许改发票/零件/数量/库位/备注五个字段**；`status`、`result`、`resultLabel`、`sourceMatched`、`scannedAt` 是扫码时点的事实，编辑不得改写（2026-11-06 修复过一次生产 bug：编辑曾把"已出库/异常"洗成"正常"，回归测试 `scripts/test-edit-record.js` 锁住该行为）。
 - 当前测试不是浏览器 E2E，而是**Node 脚本对关键状态流做回归验证**；改手动创建、删除弹窗、扫码生命周期时，优先更新这些脚本并跑一遍。
 - `docs/basic-data.json` 更新后，如果只是数据变了，通常重跑构建脚本即可；如果用户端仍读旧静态资源，再考虑同步更新版本字符串。

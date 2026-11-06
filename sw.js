@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '20261105-01';
+const VERSION = '20261106-01';
 const CACHE_NAME = 'stocksit-' + VERSION;
 const ASSETS = [
   '/',
